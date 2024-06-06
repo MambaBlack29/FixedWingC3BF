@@ -75,7 +75,7 @@ def controller(x, x_des, x_ob, con_params):
     ag = np.array(x_des[6:])
 
     # matrices and constants
-    Kr, Kv, mu, rad, mu_e, W = con_params
+    Kr, Kv, mu, rad, mu_e, W, mu_s = con_params
     l = 2/3*min(np.linalg.eig(Kv)[0]) # smallest eigenvalue
 
     # getting vc = vd (commanded vel = desired vel)
@@ -158,7 +158,7 @@ def controller(x, x_des, x_ob, con_params):
         # optimisation solution in closed form
         a = h_dot + h # class K function alpha(r) = r
         b = np.dot(W, Lg_h)
-        coeff = 1
+        coeff = np.float128(mu_s)
         mod_b = np.linalg.norm(b)
         if mod_b == 0: lamb = 0
         # else: lamb = np.max((0, -a/mod_b))/mod_b
@@ -198,7 +198,7 @@ def controller(x, x_des, x_ob, con_params):
         # optimisation solution in closed form
         a = h_dot + h # class K function alpha(r) = r
         b = np.dot(W, Lg_h)
-        coeff = 1
+        coeff = np.float128(mu_s)
         mod_b = np.linalg.norm(b)
         if mod_b == 0: lamb = 0
         else: lamb = np.max((0, -a/mod_b))/mod_b
@@ -252,7 +252,8 @@ W = np.diag([6, 0.6, 0.1])
 mu = 10e-5 # scale factor for backstepper
 mu_e = 10e-4 # scale factor for safety
 rad_ob = 100 # obstacle radius
-con_params = [Kr, Kv, mu, rad_ob, mu_e, W]
+mu_s = 8 # smoothness parameter for softmax
+con_params = [Kr, Kv, mu, rad_ob, mu_e, W, mu_s]
 
 # linear trajectory generators given initial position and velocity
 r0_self = np.array([0,0,0])
@@ -273,4 +274,4 @@ traj_ob_oncoming = trajectory(way_ob_oncoming, delta, t_i, t_f)
 traj_ob_side = trajectory(way_ob_side, delta, t_i, t_f)
 
 # simulate
-sim(x0, traj_path, traj_ob_oncoming, t_params, con_params)
+sim(x0, traj_path, traj_ob_side, t_params, con_params)
