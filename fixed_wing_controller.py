@@ -2,6 +2,7 @@ import numpy as np
 from numpy import sin, cos, tan
 from mpl_toolkits import mplot3d
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 from scipy.integrate import solve_ivp
 import scipy.interpolate as si
 
@@ -75,7 +76,7 @@ def controller(x, x_des, x_ob, con_params):
     ag = np.array(x_des[6:])
 
     # matrices and constants
-    Kr, Kv, mu, rad, mu_e, W, mu_s = con_params
+    Kr, Kv, mu, rad, mu_e, W, mu_s, choice = con_params
     l = 2/3*min(np.linalg.eig(Kv)[0]) # smallest eigenvalue
 
     # getting vc = vd (commanded vel = desired vel)
@@ -167,6 +168,47 @@ def controller(x, x_des, x_ob, con_params):
         
         return u_safe
     
+    # c3bf without backstepping
+    def c3bf_naive():
+        # depacking relevant information
+        r_ob = np.array(x_ob[:3])
+        v_ob = np.array(x_ob[3:6])
+        a_ob = np.array(x_ob[6:])
+
+        # relative terms
+        # p_rel_dot = v_rel; v_rel_dot = a_rel 
+        p_rel = r_ob - r
+        v_rel = v_ob - v
+        a_rel = a_ob - v_dot
+
+        # cbf h(x,t)
+        h1 = np.dot(p_rel, v_rel)
+        h2 = np.sqrt(np.linalg.norm(p_rel)**2 - rad**2)
+        h3 = np.linalg.norm(v_rel)
+        h = h1 + h2*h3
+
+        # cbf_dot
+        hd1 = h3**2
+        hd2 = np.dot(p_rel, a_rel)
+        hd3 = np.dot(v_rel, a_rel)*h2/h3
+        hd4 = h1*h3/h2
+        h_dot = hd1 + hd2 + hd3 + hd4
+        
+        # Lgh
+        Lg_h = np.array([(((-r_ob[0] + n)*cos(psi)*cos(theta) + (-r_ob[1] + e)*sin(psi)*cos(theta) + (r_ob[2] - d)*sin(theta))*np.sqrt((v_ob[0] - vt*cos(psi)*cos(theta))**2 + (v_ob[1] - vt*sin(psi)*cos(theta))**2 + (v_ob[2] + vt*sin(theta))**2) + (-rad**2 + (r_ob[0] - n)**2 + (r_ob[1] - e)**2 + (r_ob[2] - d)**2)**0.5*(-v_ob[0]*cos(psi)*cos(theta) - v_ob[1]*sin(psi)*cos(theta) + v_ob[2]*sin(theta) + vt))/np.sqrt((v_ob[0] - vt*cos(psi)*cos(theta))**2 + (v_ob[1] - vt*sin(psi)*cos(theta))**2 + (v_ob[2] + vt*sin(theta))**2), 0, ((((r_ob[0] - n)*sin(psi) + (-r_ob[1] + e)*cos(psi))*np.sqrt((v_ob[0] - vt*cos(psi)*cos(theta))**2 + (v_ob[1] - vt*sin(psi)*cos(theta))**2 + (v_ob[2] + vt*sin(theta))**2) + (v_ob[0]*sin(psi) - v_ob[1]*cos(psi))*(-rad**2 + (r_ob[0] - n)**2 + (r_ob[1] - e)**2 + (r_ob[2] - d)**2)**0.5)*sin(phi) + (((r_ob[0] - n)*sin(theta)*cos(psi) + (r_ob[1] - e)*sin(psi)*sin(theta) + (r_ob[2] - d)*cos(theta))*np.sqrt((v_ob[0] - vt*cos(psi)*cos(theta))**2 + (v_ob[1] - vt*sin(psi)*cos(theta))**2 + (v_ob[2] + vt*sin(theta))**2) + (v_ob[0]*sin(theta)*cos(psi) + v_ob[1]*sin(psi)*sin(theta) + v_ob[2]*cos(theta))*(-rad**2 + (r_ob[0] - n)**2 + (r_ob[1] - e)**2 + (r_ob[2] - d)**2)**0.5)*cos(phi))*vt/np.sqrt((v_ob[0] - vt*cos(psi)*cos(theta))**2 + (v_ob[1] - vt*sin(psi)*cos(theta))**2 + (v_ob[2] + vt*sin(theta))**2)])    
+
+        # optimisation solution in closed form
+        a = h_dot + h # class K function alpha(r) = r
+        b = np.dot(W, Lg_h)
+        coeff = np.float128(mu_s)
+        mod_b = np.linalg.norm(b)
+        if mod_b == 0: lamb = 0
+        # else: lamb = np.max((0, -a/mod_b))/mod_b
+        else: lamb = np.log(1 + np.exp(-coeff*a/mod_b))/mod_b/coeff
+        u_safe = u_des + lamb*np.dot(W, b)
+        
+        return u_safe
+    
     # cbf as described in paper with backstepping from R to P
     def cbf_backstep():
         # depacking relevant information
@@ -201,14 +243,15 @@ def controller(x, x_des, x_ob, con_params):
         coeff = np.float128(mu_s)
         mod_b = np.linalg.norm(b)
         if mod_b == 0: lamb = 0
-        else: lamb = np.max((0, -a/mod_b))/mod_b
-        # else: lamb = np.log(1 + np.exp(-coeff*a/mod_b))/mod_b/coeff
+        # else: lamb = np.max((0, -a/mod_b))/mod_b
+        else: lamb = np.log(1 + np.exp(-coeff*a/mod_b))/mod_b/coeff
         u_safe = u_des + lamb*np.dot(W, b)
         
         return u_safe
     
-    u_safe = c3bf_backstep()
-    return u_safe
+    u_safe = [cbf_backstep(), c3bf_backstep(), c3bf_naive()]
+
+    return u_safe[choice]
     
 # final simulation with plotted graphs
 def sim(x0, traj_self, traj_ob, t_params, con_params):
@@ -227,17 +270,24 @@ def sim(x0, traj_self, traj_ob, t_params, con_params):
     ax.plot(traj_ob[:, 0], traj_ob[:, 1], traj_ob[:, 2], label='Obstacle', linestyle='--')
     ax.plot(sol.y[0, :], sol.y[1, :], sol.y[2, :], label='Actual')
 
-    ax.set_xlim([-3000, 3000])
-    ax.set_zlim([-500, 500])
+    ax.set_xlim([-4000, 4000])
+    ax.set_zlim([-1000, 1000])
 
-    ax.set_xlabel('X axis')
-    ax.set_ylabel('Y axis')
-    ax.set_zlabel('Z axis')
+    ax.set_xlabel('X axis (km)')
+    ax.set_ylabel('Y axis (km)')
+    ax.set_zlabel('Z axis (km)')
+    ax.legend()
+
+    m2km = FuncFormatter(lambda x, _: f'{x/1000:g}')
+    ax.xaxis.set_major_formatter(m2km)
+    ax.yaxis.set_major_formatter(m2km)
+    ax.zaxis.set_major_formatter(m2km)
+
     plt.show()
 
 # -----------MAIN CODE-----------
 # initial state (n e d phi theta psi vt), where/how the plane spawns
-x0 = np.array([0,0,0,0,0,0.5*np.pi,170]) 
+x0 = np.array([0,0,1,0,0,0.5*np.pi,170]) 
 
 # time params
 delta = 0.001
@@ -252,26 +302,32 @@ W = np.diag([6, 0.6, 0.1])
 mu = 10e-5 # scale factor for backstepper
 mu_e = 10e-4 # scale factor for safety
 rad_ob = 100 # obstacle radius
-mu_s = 8 # smoothness parameter for softmax
-con_params = [Kr, Kv, mu, rad_ob, mu_e, W, mu_s]
+mu_s = 2 # smoothness parameter for softmax
+choice = 2 # cbf_backstep, c3bf_backstep, c3bf_naive
+con_params = [Kr, Kv, mu, rad_ob, mu_e, W, mu_s, choice]
 
 # linear trajectory generators given initial position and velocity
 r0_self = np.array([0,0,0])
 v0_self = np.array([0,170,0])
 
-r0_ob_oncoming = np.array([0,5000,-10])
+r0_ob_oncoming = np.array([0,5000,-1])
 v0_ob_oncoming = np.array([0,-170,0])
 
 r0_ob_side = np.array([-3000,0,0])
 v0_ob_side = np.array([130,170,0])
 
+r0_ob_down = np.array([0,0,3000])
+v0_ob_down = np.array([0,170,-130])
+
 way_path = way_gen(r0_self, v0_self)
 way_ob_oncoming = way_gen(r0_ob_oncoming, v0_ob_oncoming)
 way_ob_side = way_gen(r0_ob_side, v0_ob_side)
+way_ob_down = way_gen(r0_ob_down, v0_ob_down)
 
 traj_path = trajectory(way_path, delta, t_i, t_f)
 traj_ob_oncoming = trajectory(way_ob_oncoming, delta, t_i, t_f)
 traj_ob_side = trajectory(way_ob_side, delta, t_i, t_f)
+traj_ob_down = trajectory(way_ob_down, delta, t_i, t_f)
 
 # simulate
-sim(x0, traj_path, traj_ob_side, t_params, con_params)
+sim(x0, traj_path, traj_ob_oncoming, t_params, con_params)
