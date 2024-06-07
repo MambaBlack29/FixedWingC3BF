@@ -8,7 +8,7 @@ import numpy as np
 time_func = lambda x : sp.Function(x, real = True)(t)
 
 n, e, d, phi, theta, psi, vt, = list(map(time_func, 'n e d phi theta psi vt'.split()))
-At, P, Q, g = sp.symbols('At P Q g', real = True)
+At, P, Q, g, mu = sp.symbols('At P Q g mu', real = True)
 
 # relevant variables for state
 x = [n, e, d, phi, theta, psi, vt]
@@ -34,9 +34,16 @@ d_dot = -vt*sin(theta)
 phi_dot = P + sin(phi)*tan(theta)*Q + cos(phi)*tan(theta)*R
 theta_dot = cos(phi)*Q - sin(phi)*R
 psi_dot = (sin(phi)*Q + cos(phi)*R)/cos(theta)
-vt_dot = At
+v_dot = At
 
-x_dot = [n_dot, e_dot, d_dot, phi_dot, theta_dot, psi_dot, vt_dot]
+x_dot = [n_dot, e_dot, d_dot, phi_dot, theta_dot, psi_dot, v_dot]
+
+g_1 = sp.Matrix([[0, 1, sin(phi)*tan(theta)],
+                 [0, 0, cos(phi)],
+                 [0, 0, sin(phi)/cos(theta)]])
+g_2 = sp.Matrix([[1,0,0]])
+G = sp.Matrix(sp.BlockMatrix([[sp.zeros(3)],[g_1],[g_2]]))
+print(G.shape)
 
 # obstacle path
 c1, c2, c3, c1_dot, c2_dot, c3_dot = list(map(time_func, 'c1 c2 c3 c1_dot c2_dot c3_dot'.split()))
@@ -58,16 +65,16 @@ sub_dict_x = dict({diff_list[i]:x_dot[i] for i in range(len(x))})
 prel = obr - r
 vrel = obv - v
 
-# c3bf alone
-cos_phi = (prel.norm()**2 - rad**2)**0.5/(prel.norm())
-h = sp.simplify((prel.T*vrel)[0,0] + prel.norm()*vrel.norm()*cos_phi)
-h_dot = sp.simplify(h.diff(t).subs(sub_dict_c).subs(sub_dict_x))
-sp.pprint(h_dot)
+# c3bf with backstepping
+# h = sp.Matrix([sp.simplify(((prel.T*vrel)[0,0] + sp.simplify(vrel.norm()*(prel.norm()**2 - rad**2)**0.5)).subs(sub_dict_x))])
+# del_h = (h.jacobian(x))
 
-# v_dot = sp.simplify(v.diff(t).subs(sub_dict))
+# print(sp.simplify(del_h*G))
 
-# print("\nv_dot is:\n")
-# sp.pprint(v_dot)
-# print("\nThe part with u:\n")
-# v_dot_u = -v_dot.jacobian(u)
-# sp.pprint(v_dot_u)
+v_dot = sp.simplify(v.diff(t).subs(sub_dict_x))
+
+print("\nv_dot is:\n")
+sp.pprint(v_dot)
+print("\nThe part with u:\n")
+v_dot_u = v_dot.jacobian(u)
+sp.pprint(v_dot_u)
