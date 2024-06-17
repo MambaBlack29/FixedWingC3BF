@@ -60,21 +60,24 @@ Ma_inv = Ma.inv()
 inter_input = (Ma_inv*ad)
 
 Rd = inter_input[2]
-Rd_dot = Rd.diff(t)
+Rd_dot = sp.Matrix([Rd.diff(t)])
 
 Rd_dot = sp.simplify(Rd_dot.subs(sub_dict))
-R_dot = sp.simplify(R_dot.subs(sub_dict))
+Rd_dot_u = Rd_dot.jacobian(u)
 
-gr = R_dot.diff(P)
-fr = sp.simplify(R_dot - gr*P)
+sp.pprint(sp.simplify(Rd_dot_u))
+# R_dot = sp.simplify(R_dot.subs(sub_dict))
 
-frd = sp.simplify(Rd_dot.subs(P,0).subs(sub_dict).subs(P,0))
-grd = (Rd_dot - frd).diff(P)
+# gr = R_dot.diff(P)
+# fr = sp.simplify(R_dot - gr*P)
 
-print(gr)
-print()
-print(fr)
-print()
-print(grd)
-print()
-print(frd)
+# frd = sp.simplify(Rd_dot.subs(P,0).subs(sub_dict).subs(P,0))
+# grd = (Rd_dot - frd).diff(P)
+
+# print(gr)
+# print()
+# print(fr)
+# print()
+# print(grd)
+# print()
+# print(frd)

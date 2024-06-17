@@ -271,7 +271,7 @@ def sim(x0, traj_self, traj_ob, t_params, con_params):
     ax.plot(sol.y[0, :], sol.y[1, :], sol.y[2, :], label='Actual')
 
     ax.set_xlim([-4000, 4000])
-    ax.set_zlim([-1000, 1000])
+    ax.set_zlim([-500, 500])
 
     ax.set_xlabel('X axis (km)')
     ax.set_ylabel('Y axis (km)')
@@ -303,15 +303,15 @@ mu = 10e-5 # scale factor for backstepper
 mu_e = 10e-4 # scale factor for safety
 rad_ob = 100 # obstacle radius
 mu_s = 2 # smoothness parameter for softmax
-choice = 2 # cbf_backstep, c3bf_backstep, c3bf_naive
+choice = 1 # cbf_backstep, c3bf_backstep, c3bf_naive
 con_params = [Kr, Kv, mu, rad_ob, mu_e, W, mu_s, choice]
 
 # linear trajectory generators given initial position and velocity
 r0_self = np.array([0,0,0])
 v0_self = np.array([0,170,0])
 
-r0_ob_oncoming = np.array([0,5000,-1])
-v0_ob_oncoming = np.array([0,-170,0])
+r0_ob_oncoming = np.array([0,3000,-1])
+v0_ob_oncoming = np.array([0,-0.001,0])
 
 r0_ob_side = np.array([-3000,0,0])
 v0_ob_side = np.array([130,170,0])
@@ -330,4 +330,4 @@ traj_ob_side = trajectory(way_ob_side, delta, t_i, t_f)
 traj_ob_down = trajectory(way_ob_down, delta, t_i, t_f)
 
 # simulate
-sim(x0, traj_path, traj_ob_oncoming, t_params, con_params)
+sim(x0, traj_path, traj_ob_side, t_params, con_params)
