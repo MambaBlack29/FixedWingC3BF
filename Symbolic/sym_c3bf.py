@@ -59,7 +59,7 @@ Rot = sp.Matrix([[cos(psi)*cos(theta), cos(psi)*sin(phi)*sin(theta) - cos(phi)*s
                  [cos(theta)*sin(psi), cos(phi)*cos(psi) + sin(phi)*sin(psi)*sin(theta), cos(phi)*sin(psi)*sin(theta) - cos(psi)*sin(phi)],
                  [-sin(theta), cos(theta)*sin(phi), cos(phi)*cos(theta)]])
 lx, ly, lz = sp.symbols('lx, ly, lz', real = True) # COM in body frame
-l_com = sp.Matrix([lx, 0, lz])
+l_com = sp.Matrix([lx, ly, lz])
 print(l_com)
 
 # dictionary to substitute d(whatever)/dt to actual values from the state space
@@ -74,19 +74,21 @@ prel = obr - r - Rot*l_com
 vrel = sp.simplify(prel.diff(t).subs(sub_dict_c).subs(sub_dict_x))
 print(vrel)
 # c3bf with backstepping
-# h = sp.Matrix([sp.simplify(((prel.T*vrel)[0,0] + sp.simplify(vrel.norm()*(prel.norm()**2 - rad**2)**0.5)).subs(sub_dict_x))])
-# del_h = sp.simplify(h.jacobian(x))
+h = sp.Matrix([sp.simplify(((prel.T*vrel)[0,0] + sp.simplify(vrel.norm()*(prel.norm()**2 - rad**2)**0.5)).subs(sub_dict_x))])
+del_h = sp.simplify(h.jacobian(l_com))
 
+print("del h / del l:")
+sp.pprint(del_h)
 # print("LgH is:")
 # print(sp.simplify(del_h*G))
 
-v_dot = sp.simplify(vrel.diff(t).subs(sub_dict_c).subs(sub_dict_x))
+# v_dot = sp.simplify(vrel.diff(t).subs(sub_dict_c).subs(sub_dict_x))
 
-print("\nv_dot is:\n")
-print(v_dot)
-print("\nThe part with u:\n")
-v_dot_u = sp.simplify(v_dot.jacobian(u))
-print(v_dot_u)
-print("\nThe part without u:\n")
-v_dot_nu = sp.simplify(v_dot - v_dot_u*u)
-print(v_dot_nu)
+# print("\nv_dot is:\n")
+# print(v_dot)
+# print("\nThe part with u:\n")
+# v_dot_u = sp.simplify(v_dot.jacobian(u))
+# print(v_dot_u)
+# print("\nThe part without u:\n")
+# v_dot_nu = sp.simplify(v_dot - v_dot_u*u)
+# print(v_dot_nu)
