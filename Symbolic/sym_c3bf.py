@@ -12,7 +12,7 @@ At, P, Q, g, mu = sp.symbols('At P Q g mu', real = True)
 
 # relevant variables for state
 x = [n, e, d, phi, theta, psi, vt]
-u = [At, P, Q]
+u = sp.Matrix([At, P, Q])
 r = sp.Matrix([n, e, d])
 v = sp.Matrix([vt*cos(theta)*cos(psi),
                vt*cos(theta)*sin(psi),
@@ -54,6 +54,14 @@ rad = sp.Symbol('rad', real = True)
 obr = sp.Matrix([c1, c2, c3])
 obv = sp.Matrix([c1_dot, c2_dot, c3_dot])
 
+# rotation matrix from body to earth frame
+Rot = sp.Matrix([[cos(psi)*cos(theta), cos(psi)*sin(phi)*sin(theta) - cos(phi)*sin(psi), sin(phi)*sin(psi) + cos(phi)*cos(psi)*sin(theta)],
+                 [cos(theta)*sin(psi), cos(phi)*cos(psi) + sin(phi)*sin(psi)*sin(theta), cos(phi)*sin(psi)*sin(theta) - cos(psi)*sin(phi)],
+                 [-sin(theta), cos(theta)*sin(phi), cos(phi)*cos(theta)]])
+lx, ly, lz = sp.symbols('lx, ly, lz', real = True) # COM in body frame
+l_com = sp.Matrix([lx, 0, lz])
+print(l_com)
+
 # dictionary to substitute d(whatever)/dt to actual values from the state space
 diff_func = lambda y : y.diff(t)
 diff_list = list(map(diff_func, x))
@@ -62,19 +70,23 @@ sub_dict_c = dict({diff_c_list[i]:c_dot[i] for i in range(len(c))})
 sub_dict_x = dict({diff_list[i]:x_dot[i] for i in range(len(x))})
 
 # relative
-prel = obr - r
-vrel = obv - v
-
+prel = obr - r - Rot*l_com
+vrel = sp.simplify(prel.diff(t).subs(sub_dict_c).subs(sub_dict_x))
+print(vrel)
 # c3bf with backstepping
 # h = sp.Matrix([sp.simplify(((prel.T*vrel)[0,0] + sp.simplify(vrel.norm()*(prel.norm()**2 - rad**2)**0.5)).subs(sub_dict_x))])
-# del_h = (h.jacobian(x))
+# del_h = sp.simplify(h.jacobian(x))
 
+# print("LgH is:")
 # print(sp.simplify(del_h*G))
 
-v_dot = sp.simplify(v.diff(t).subs(sub_dict_x))
+v_dot = sp.simplify(vrel.diff(t).subs(sub_dict_c).subs(sub_dict_x))
 
 print("\nv_dot is:\n")
-sp.pprint(v_dot)
+print(v_dot)
 print("\nThe part with u:\n")
-v_dot_u = v_dot.jacobian(u)
-sp.pprint(v_dot_u)
+v_dot_u = sp.simplify(v_dot.jacobian(u))
+print(v_dot_u)
+print("\nThe part without u:\n")
+v_dot_nu = sp.simplify(v_dot - v_dot_u*u)
+print(v_dot_nu)
