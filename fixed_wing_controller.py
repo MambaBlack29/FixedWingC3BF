@@ -244,14 +244,14 @@ def controller(x, x_des, x_ob, con_params):
         mod_b = np.linalg.norm(b)
         if mod_b == 0: lamb = 0
         # else: lamb = np.max((0, -a/mod_b))/mod_b
-        else: lamb = np.log(1 + np.exp(-coeff*a/mod_b))/mod_b/coeff
+        else: lamb = np.log(1 + np.exp(-coeff*a/mod_b))/mod_b/coeff # softmax
         u_safe = u_des + lamb*np.dot(W, b)
         
         return u_safe
     
-    u_safe = [cbf_backstep(), c3bf_backstep(), c3bf_naive()]
+    u_safe = [cbf_backstep, c3bf_backstep, c3bf_naive]
 
-    return u_safe[choice]
+    return u_safe[choice]()
     
 # final simulation with plotted graphs
 def sim(x0, traj_self, traj_ob, t_params, con_params):
@@ -303,7 +303,7 @@ mu = 10e-5 # scale factor for backstepper
 mu_e = 10e-4 # scale factor for safety
 rad_ob = 100 # obstacle radius
 mu_s = 2 # smoothness parameter for softmax
-choice = 1 # cbf_backstep, c3bf_backstep, c3bf_naive
+choice = 2 # cbf_backstep, c3bf_backstep, c3bf_naive
 con_params = [Kr, Kv, mu, rad_ob, mu_e, W, mu_s, choice]
 
 # linear trajectory generators given initial position and velocity
@@ -311,7 +311,7 @@ r0_self = np.array([0,0,0])
 v0_self = np.array([0,170,0])
 
 r0_ob_oncoming = np.array([0,3000,-1])
-v0_ob_oncoming = np.array([0,-0.001,0])
+v0_ob_oncoming = np.array([0,-100,0])
 
 r0_ob_side = np.array([-3000,0,0])
 v0_ob_side = np.array([130,170,0])
@@ -330,4 +330,6 @@ traj_ob_side = trajectory(way_ob_side, delta, t_i, t_f)
 traj_ob_down = trajectory(way_ob_down, delta, t_i, t_f)
 
 # simulate
-sim(x0, traj_path, traj_ob_side, t_params, con_params)
+# sim(x0, traj_path, traj_ob_side, t_params, con_params)
+# sim(x0, traj_path, traj_ob_side, t_params, con_params)
+sim(x0, traj_path, traj_ob_oncoming, t_params, con_params)
